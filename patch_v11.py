@@ -63,7 +63,6 @@ new_catches=r'''            } catch (TransferCancelled e) {
                         resultText.setText("Перенос остановлен: " + e.getMessage() +
                                 "\\n\\nЕсли плейлист уже был создан, прогресс сохранён и следующая попытка продолжит его.");
                         openPlaylistButton.setEnabled(lastPlaylistUrl != null);
-                        updateResumeHint();
                         updateReadiness();
                     });
                 }
