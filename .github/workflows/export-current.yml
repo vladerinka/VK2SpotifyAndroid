@@ -1,0 +1,32 @@
+name: Export current v1.1 source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/export-current.yml'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild source
+        run: |
+          cat srcpart0.b64 srcpart1_0.b64 srcpart1_1.b64 srcpart1_2.b64 srcpart1_3.b64 srcpart1_4.b64 srcpart1_5.b64 srcpart1_6.b64 srcpart2.b64 srcpart3.b64 > source.b64
+          base64 -d source.b64 > source.zip
+          unzip -q source.zip
+      - name: Apply patches
+        run: |
+          python patch_v03.py
+          python patch_v04.py
+          python patch_v05.py
+          python patch_v10.py
+          python patch_v11.py
+      - name: Pack
+        run: zip -qr VK2Spotify-v1.1-source.zip VK2SpotifyAndroid
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VK2Spotify-v1.1-source
+          path: VK2Spotify-v1.1-source.zip
