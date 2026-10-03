@@ -43,11 +43,36 @@ s=s[:pos]+s[pos:].replace(old,new,1)
 s=s.replace('                    Thread.sleep(1150);','                    sleepCancellable(1150L);',1)
 s=s.replace('            Thread.sleep(wait * 1000L);','            sleepCancellable(wait * 1000L);',1)
 
-old='''            } catch (TransferCancelled e) {\n                runOnUiThread(() -> {\n                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n                    progressArea.setVisibility(View.GONE);\n                    toast("Перенос остановлен. Прогресс сохранён.");\n                    updateResumeHint();\n                    updateReadiness();\n                });\n\n            } catch (InterruptedException e) {\n                Thread.currentThread().interrupt();\n                runOnUiThread(() -> {\n                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n                    progressArea.setVisibility(View.GONE);\n                    updateReadiness();\n                });\n\n            } catch (Exception e) {\n                runOnUiThread(() -> {\n                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n                    progressArea.setVisibility(View.GONE);\n                    resultCard.setVisibility(View.VISIBLE);\n                    resultText.setText("Перенос остановлен: " + e.getMessage() +\n                            "\\n\\nЕсли плейлист уже был создан, прогресс сохранён и следующая попытка продолжит его.");\n                    openPlaylistButton.setEnabled(lastPlaylistUrl != null);\n                    updateResumeHint();\n                    updateReadiness();\n                });\n            }\n        });'''
-new='''            } catch (TransferCancelled e) {\n                runOnUiThread(this::finishCancelledUi);\n\n            } catch (InterruptedException e) {\n                Thread.currentThread().interrupt();\n                runOnUiThread(this::finishCancelledUi);\n\n            } catch (Exception e) {\n                if (cancelRequested) {\n                    runOnUiThread(this::finishCancelledUi);\n                } else {\n                    runOnUiThread(() -> {\n                        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n                        progressArea.setVisibility(View.GONE);\n                        resultCard.setVisibility(View.VISIBLE);\n                        resultText.setText("Перенос остановлен: " + e.getMessage() +\n                                "\\n\\nЕсли плейлист уже был создан, прогресс сохранён и следующая попытка продолжит его.");\n                        openPlaylistButton.setEnabled(lastPlaylistUrl != null);\n                        updateResumeHint();\n                        updateReadiness();\n                    });\n                }\n            } finally {\n                transferFuture = null;\n            }\n        });'''
-if old not in s:
-    raise SystemExit('catch/finally block not found')
-s=s.replace(old,new,1)
+cs=s.index('            } catch (TransferCancelled e) {', s.index('    private void startTransfer() {'))
+ce=s.index('\n        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);', cs)
+new_catches=r'''            } catch (TransferCancelled e) {
+                runOnUiThread(this::finishCancelledUi);
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                runOnUiThread(this::finishCancelledUi);
+
+            } catch (Exception e) {
+                if (cancelRequested) {
+                    runOnUiThread(this::finishCancelledUi);
+                } else {
+                    runOnUiThread(() -> {
+                        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                        progressArea.setVisibility(View.GONE);
+                        resultCard.setVisibility(View.VISIBLE);
+                        resultText.setText("Перенос остановлен: " + e.getMessage() +
+                                "\\n\\nЕсли плейлист уже был создан, прогресс сохранён и следующая попытка продолжит его.");
+                        openPlaylistButton.setEnabled(lastPlaylistUrl != null);
+                        updateResumeHint();
+                        updateReadiness();
+                    });
+                }
+            } finally {
+                transferFuture = null;
+            }
+        });
+'''
+s=s[:cs]+new_catches+s[ce:]
 
 needle='''    private String transferListHash(List<Track> tracks) {'''
 helpers='''    private void requestTransferCancel() {\n        if (cancelRequested) return;\n        cancelRequested = true;\n        if (cancelButton != null) {\n            cancelButton.setEnabled(false);\n            cancelButton.setText("Остановлено ✓");\n        }\n\n        HttpURLConnection c = activeConnection;\n        if (c != null) c.disconnect();\n        Future<?> f = transferFuture;\n        if (f != null) f.cancel(true);\n\n        finishCancelledUi();\n    }\n\n    private void finishCancelledUi() {\n        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        if (progressArea != null) progressArea.setVisibility(View.GONE);\n        if (cancelButton != null) {\n            cancelButton.setEnabled(true);\n            cancelButton.setText("Отменить перенос");\n        }\n        if (resultCard != null && resultText != null) {\n            resultCard.setVisibility(View.VISIBLE);\n            resultText.setText("Перенос остановлен. Прогресс сохранён.\\n\\n" +\n                    "При следующем запуске с тем же списком треков приложение продолжит с места остановки.");\n            if (openPlaylistButton != null) openPlaylistButton.setEnabled(lastPlaylistUrl != null);\n        }\n        updateResumeHint();\n        updateReadiness();\n    }\n\n    private void sleepCancellable(long millis) throws InterruptedException, TransferCancelled {\n        long end = System.currentTimeMillis() + Math.max(0L, millis);\n        while (true) {\n            if (cancelRequested) throw new TransferCancelled();\n            long left = end - System.currentTimeMillis();\n            if (left <= 0L) return;\n            Thread.sleep(Math.min(250L, left));\n        }\n    }\n\n'''
