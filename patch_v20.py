@@ -211,7 +211,7 @@ s=s[:a]+spotify_method+s[b:]
 # Overlay title and generic page finished
 s=s.replace('TextView title = label("VK Музыка", 17, text, Typeface.BOLD);',
             'sourceWebTitle = label(sourceName(selectedSource), 17, text, Typeface.BOLD);',1)
-s=s.replace('toolbar.addView(title, weightParams(1));','toolbar.addView(sourceWebTitle, weightParams(1));',1)
+s=s.replace('title.setGravity(Gravity.CENTER);','sourceWebTitle.setGravity(Gravity.CENTER);',1)\ns=s.replace('toolbar.addView(title, weightParams(1));','toolbar.addView(sourceWebTitle, weightParams(1));',1)
 s=s.replace('collect.setOnClickListener(v -> startVkCollection());','collect.setOnClickListener(v -> startVkCollection());',1)
 s=s.replace('''                if (url != null && (url.contains("vk.com") || url.contains("vk.ru"))) {
                     vkStatusText.setText("VK открыт — выбери музыку и нажми «Собрать»");
